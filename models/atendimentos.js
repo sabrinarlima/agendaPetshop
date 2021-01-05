@@ -7,26 +7,8 @@ class Atendimento {
         const dataCriacao = moment().format('YYYY-MM-DD HH:MM:SS')
         const data = moment(atendimento.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS')
 
-        const dataValida = moment(data).isSameOrAfter(dataCriacao)
-        const cliValido = atendimento.cliente.length >= 5
-
-        const validacoes = [
-            {
-                nome: 'data',
-                valido: dataValida,
-                mensagem: 'Data deve ser maior ou igual a data atual'
-            },
-            {
-                nome: 'cliente',
-                valido: cliValido,
-                mensagem: 'Cliente deve ter pelo menos 5 caracteres'
-            }
-        ]
-
-        const erros = validacoes.filter(campo => !campo.valido)
-        const existemErros = erros.length
-
-        if (existemErros) {
+        const erros = this.valida(atendimento, data, dataCriacao);
+        if (erros.length > 0) {
             res.status(400).json(erros)
         } else {
 
@@ -61,43 +43,85 @@ class Atendimento {
 
         conexao.query(sql, (erro, resultados) => {
             const atendimento = resultados.length > 0 ?
-                resultados[0] : {}
+                resultados[0] : undefined;
             if (erro) {
-                res.status(400).json(erro)
+                res.status(400).json(erro);
+            } else if (!atendimento) {
+                res.status(404).json({ "erro": "usuário não encontrado" });
             } else {
-                res.status(200).json(atendimento)
+                res.status(200).json(atendimento);
             }
 
-        })
+        });
     }
 
     altera(id, valores, res) {
-        if(valores.data) {
+        if (valores.data) {
             valores.data = moment(valores.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS')
         }
-        const sql =  'UPDATE Atendimentos SET ? WHERE id=?'
 
-
-        conexao.query(sql, [valores, id], (erro, resultados) => {
-            if(erro) {
-                res.status(400).json(erro)
-            }else {
-                res.status(200).json({...valores, id})
+        const sql = `SELECT * FROM Atendimentos WHERE id=${id}`;
+        
+        conexao.query(sql, (erro, resultados) => {
+            const atendimento = resultados.length > 0 ?
+                resultados[0] : undefined;
+            if (erro) {
+                res.status(400).json(erro);
+            } else if (!atendimento) {
+                res.status(404).json({ "erro": "usuário não encontrado" });
             }
-        })
+
+            const erros = this.valida(valores, valores.data, atendimento.dataCriacao);
+
+            if(erros.length > 0) {
+                res.status(400).json(erros);
+                return;
+            }
+
+            const sql = 'UPDATE Atendimentos SET ? WHERE id=?'
+
+
+            conexao.query(sql, [valores, id], (erro, resultados) => {
+                if (erro) {
+                    res.status(400).json(erro)
+                } else {
+                    res.status(200).json({ ...valores, id })
+                }
+            });
+        });
     }
 
     deleta(id, res) {
         const sql = 'DELETE FROM Atendimentos WHERE id=?'
 
         conexao.query(sql, id, (erro, resultados) => {
-            if(erro) {
+            if (erro) {
                 res.status(400).json(erro)
-            }else {
+            } else {
                 res.status(200).json(resultados)
             }
 
         })
+    }
+
+    valida(atendimento, data, dataCriacao) {
+        const dataValida = moment(data).isSameOrAfter(dataCriacao)
+        const cliValido = atendimento.cliente.length >= 5
+
+        const validacoes = [
+            {
+                nome: 'data',
+                valido: dataValida,
+                mensagem: 'Data deve ser maior ou igual a data atual'
+            },
+            {
+                nome: 'cliente',
+                valido: cliValido,
+                mensagem: 'Cliente deve ter pelo menos 5 caracteres'
+            }
+        ]
+
+        return validacoes.filter(campo => !campo.valido);
     }
 }
 
