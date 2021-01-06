@@ -73,7 +73,7 @@ class Atendimento {
 
             const erros = this.valida(valores, valores.data, atendimento.dataCriacao);
 
-            if(erros.length > 0) {
+            if(erros.length > 0) {  
                 res.status(400).json(erros);
                 return;
             }
