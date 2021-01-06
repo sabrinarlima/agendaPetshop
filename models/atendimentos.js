@@ -1,42 +1,61 @@
 const { default: axios } = require('axios')
 const moment = require('moment')
 const atendimentos = require('../controllers/atendimentos')
-const conexao = require('../infraestrutura/conexao')
+const conexao = require('../infraestrutura/database/conexao')
+const repositorio = require('../repositorios/atendimento')
 
 class Atendimento {
-    adiciona(atendimento, res) {
-        const dataCriacao = moment().format('YYYY-MM-DD HH:MM:SS')
-        const data = moment(atendimento.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS')
+    constructor() {
+        this.dataValida = (data, dataCriacao) => moment(data).isSameOrAfter(dataCriacao)
+        this.cliValido = (tamanho) => tamanho >= 5
+        this.valida = (parametros) => this.validacoes.filter(campo => {
+            const {nome} = campo
+            const parametro = parametros[nome]
 
-        const erros = this.valida(atendimento, data, dataCriacao);
+            return !campo.valido(parametro)
+        })
+        this.validacoes = [
+            {
+                nome: 'data',
+                valido: this.dataValida,
+                mensagem: 'Data deve ser maior ou igual a data atual'
+            },
+            {
+                nome: 'cliente',
+                valido: this.cliValido,
+                mensagem: 'Cliente deve ter pelo menos 5 caracteres'
+            }
+        ]
+
+    }
+    adiciona(atendimento) {
+        const dataCriacao = moment().format('YYYY-MM-DD HH:mm:ss')
+        const data = moment(atendimento.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:mm:ss')
+
+
+        const parametros = {
+            data: {data, dataCriacao},
+            cliente:{tamanho: atendimento.cliente.length}
+        }
+        const erros = this.valida(parametros);
+
+
+
         if (erros.length > 0) {
-            res.status(400).json(erros)
+            return new Promise((reject) => reject(erros))
         } else {
-
             const atendimentoDatado = { ...atendimento, dataCriacao, data }
-            const sql = 'INSERT INTO Atendimentos SET ?'
 
-            conexao.query(sql, atendimentoDatado, (erro, resultados) => {
-                if (erro) {
-                    res.status(400).json(erro)
-                } else {
-                    res.status(200).json(atendimento)
-                }
-            })
+            return repositorio.adiciona(atendimentoDatado)
+                .then(resultados => {
+                    const id = resultados.insertId
+                    return ({ ...atendimento, id })
+                })
         }
     }
 
     lista(res) {
-        const sql = 'SELECT * FROM Atendimentos'
-
-        conexao.query(sql, (erro, resultados) => {
-            if (erro) {
-                res.status(400).json(erro)
-            } else {
-                res.status(200).json(resultados)
-            }
-
-        })
+        return repositorio.lista()
     }
 
     buscaPorId(id, res) {
@@ -44,15 +63,15 @@ class Atendimento {
 
         conexao.query(sql, async (erro, resultados) => {
             const atendimento = resultados.length > 0 ?
-            resultados[0] : undefined;
-            const cpf = atendimento.cliente    
+                resultados[0] : undefined;
+            const cpf = atendimento.cliente
             if (erro) {
                 res.status(400).json(erro);
             } else if (!atendimento) {
                 res.status(404).json({ "erro": "usuário não encontrado" });
             } else {
                 const { data } = await axios.get(`http://localhost:8082/${cpf}`)
-                atendimento.cliente = data 
+                atendimento.cliente = data
                 res.status(200).json(atendimento);
             }
 
@@ -65,7 +84,7 @@ class Atendimento {
         }
 
         const sql = `SELECT * FROM Atendimentos WHERE id=${id}`;
-        
+
         conexao.query(sql, (erro, resultados) => {
             const atendimento = resultados.length > 0 ?
                 resultados[0] : undefined;
@@ -77,7 +96,7 @@ class Atendimento {
 
             const erros = this.valida(valores, valores.data, atendimento.dataCriacao);
 
-            if(erros.length > 0) {  
+            if (erros.length > 0) {
                 res.status(400).json(erros);
                 return;
             }
@@ -111,19 +130,6 @@ class Atendimento {
     valida(atendimento, data, dataCriacao) {
         const dataValida = moment(data).isSameOrAfter(dataCriacao)
         const cliValido = atendimento.cliente.length >= 5
-
-        const validacoes = [
-            {
-                nome: 'data',
-                valido: dataValida,
-                mensagem: 'Data deve ser maior ou igual a data atual'
-            },
-            {
-                nome: 'cliente',
-                valido: cliValido,
-                mensagem: 'Cliente deve ter pelo menos 5 caracteres'
-            }
-        ]
 
         return validacoes.filter(campo => !campo.valido);
     }
