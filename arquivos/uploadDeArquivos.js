@@ -1,5 +1,28 @@
 const fs = require('fs');
+const path = require('path')
 
-fs.createReadStream('./assets/cachorrin.jpg')
-    .pipe(fs.createWriteStream('./assets/cachorrin-stream.jpg'))
-    .on('finish', () => console.log('imagem escrita com sucesso'))
+
+
+module.exports = (caminho, nomeDoArquivo, callbackimagemCriada) => {
+
+    const tiposValidos = ['jpg', 'png', 'jpeg']
+    const tipo = path.extname(caminho)
+    const tipoValido = tiposValidos.indexOf(tipo.substring(1)) !== -1
+
+    if (tipoValido) {
+
+        const novoCaminho = `./assets/imagens/${nomeDoArquivo}${tipo}`
+
+        fs.createReadStream(caminho)
+            .pipe(fs.createWriteStream(novoCaminho))
+            .on('finish', () => callbackimagemCriada(false, novoCaminho))
+    } else {
+        const erro = 'tipo é inválido'
+        console.log('Erro! Tipo da imagem inválido')
+        callbackimagemCriada(erro)
+    }
+
+
+}
+
+
