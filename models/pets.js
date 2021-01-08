@@ -1,6 +1,6 @@
-const conexao = require('../infraestrutura/conexao')
+const conexao = require('../infraestrutura/database/conexao')
 
-const uploadDeArquivo = require('../arquivos/uploadDeArquivos')
+const uploadDeArquivo = require('../infraestrutura/arquivos/uploadDeArquivos')
 class Pet {
     adiciona(pet, res) {
         const query = `INSERT INTO Pets SET ?`
